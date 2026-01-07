@@ -1,0 +1,5 @@
+{
+  "name": "ThaliLens",
+  "description": "AI-powered nutrition analyzer specialized for Indian cuisine using Gemini Vision.",
+  "requestFramePermissions": []
+}
