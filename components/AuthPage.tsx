@@ -11,7 +11,25 @@ export const AuthPage: React.FC = () => {
     const [dob, setDob] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const { login, signup } = useAuth();
+    const { login, signup, loginAnonymously } = useAuth();
+
+    const handleGuestLogin = async () => {
+        setError(null);
+        setIsLoading(true);
+
+        try {
+            await loginAnonymously();
+        } catch (err: any) {
+            console.error("Guest login error:", err);
+            if (err.code === 'auth/admin-restricted-operation') {
+                setError("Guest login is not enabled in the Firebase Console. Please enable 'Anonymous' sign-in method in Authentication settings.");
+            } else {
+                setError("Failed to continue as guest: " + err.message);
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -151,6 +169,17 @@ export const AuthPage: React.FC = () => {
                             {isLogin ? 'Create one' : 'Sign in'}
                         </button>
                     </p>
+
+                    <div className="mt-6 border-t border-gray-100 pt-4">
+                        <button
+                            type="button"
+                            onClick={handleGuestLogin}
+                            disabled={isLoading}
+                            className="text-gray-500 hover:text-orange-600 font-medium transition-colors text-sm"
+                        >
+                            Continue as Guest
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

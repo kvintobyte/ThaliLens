@@ -188,7 +188,7 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({ goal = 2500, tim
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 w-full text-center divide-x divide-gray-100">
+                    <div className="grid grid-cols-2 w-full text-center divide-x divide-gray-100">
                         <div>
                             <p className="text-xs text-gray-400 uppercase tracking-wide">Goal</p>
                             <p className="font-bold text-gray-900">{goal}</p>
@@ -196,10 +196,6 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({ goal = 2500, tim
                         <div>
                             <p className="text-xs text-gray-400 uppercase tracking-wide">Eaten</p>
                             <p className="font-bold text-orange-500">{Math.round(stats.calories)}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-gray-400 uppercase tracking-wide">Burned</p>
-                            <p className="font-bold text-green-500">-</p>
                         </div>
                     </div>
                 </div>

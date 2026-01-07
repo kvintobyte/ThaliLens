@@ -48,7 +48,10 @@ function AppContent() {
         <OnboardingFlow
           baseProfile={userProfile || { uid: user.uid, displayName: user.displayName || '', dateOfBirth: '', createdAt: '', email: user.email }}
           onComplete={(data) => {
-            setUserProfile(prev => prev ? { ...prev, ...data } : null);
+            setUserProfile(prev => {
+              const base = prev || { uid: user.uid, displayName: user.displayName || 'Guest', dateOfBirth: '', createdAt: new Date().toISOString(), email: user.email };
+              return { ...base, ...data };
+            });
             setOnboardingStatus('results');
           }}
         />

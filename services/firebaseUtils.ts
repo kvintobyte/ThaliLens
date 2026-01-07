@@ -204,7 +204,7 @@ export const fetchUserProfile = async (userId: string): Promise<UserProfileData 
 export const updateUserProfile = async (userId: string, data: Partial<UserProfileData>) => {
     try {
         const docRef = doc(db, 'users', userId);
-        await updateDoc(docRef, data);
+        await setDoc(docRef, data, { merge: true });
     } catch (e) {
         console.error("Error updating user profile:", e);
         throw e;

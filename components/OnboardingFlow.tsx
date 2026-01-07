@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { UserProfileData } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { updateUserProfile } from '../services/firebaseUtils';
-import { ChevronRight, Check, Activity, Target, Ruler, Weight } from 'lucide-react';
+import { ChevronRight, Check, Activity, Target, Ruler } from 'lucide-react';
 
 interface OnboardingProps {
     onComplete: (data: Partial<UserProfileData>) => void;
@@ -10,13 +10,14 @@ interface OnboardingProps {
 }
 
 export const OnboardingFlow: React.FC<OnboardingProps> = ({ onComplete, baseProfile }) => {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const [step, setStep] = useState(1);
 
     // Form State
     const [sex, setSex] = useState<'male' | 'female'>('male');
     const [height, setHeight] = useState('');
     const [currentWeight, setCurrentWeight] = useState('');
+    const [age, setAge] = useState(''); // New state for manual age entry
     const [activityLevel, setActivityLevel] = useState(1.2);
     const [goal, setGoal] = useState<'lose' | 'maintain' | 'gain'>('lose');
     const [targetWeight, setTargetWeight] = useState('');
@@ -25,13 +26,32 @@ export const OnboardingFlow: React.FC<OnboardingProps> = ({ onComplete, baseProf
     const steps = 3;
 
     // Calculations
+    const calculateAge = (dob: string) => {
+        const birthDate = new Date(dob);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age;
+    };
+
     const calculateResults = () => {
         const weight = parseFloat(currentWeight);
         const h = parseFloat(height);
-        const age = calculateAge(baseProfile.dateOfBirth); // Helper needed or assumed
+
+        let calculatedAge = 0;
+        if (baseProfile.dateOfBirth) {
+            calculatedAge = calculateAge(baseProfile.dateOfBirth);
+        } else if (age) {
+            calculatedAge = parseInt(age);
+        } else {
+            calculatedAge = 25; // Should be blocked by validation
+        }
 
         // BMR (Mifflin-St Jeor)
-        let bmr = (10 * weight) + (6.25 * h) - (5 * age);
+        let bmr = (10 * weight) + (6.25 * h) - (5 * calculatedAge);
         if (sex === 'male') bmr += 5;
         else bmr -= 161;
 
@@ -44,8 +64,7 @@ export const OnboardingFlow: React.FC<OnboardingProps> = ({ onComplete, baseProf
             const deficit = (goalPace * 7700) / 7;
             dailyBudget = tdee - deficit;
         } else if (goal === 'gain') {
-            dailyBudget = tdee + 300; // Fixed surplus for gain as per request? OR use pace? Request says "+ 300"
-            // Actually request says: Daily Budget (Gain): TDEE + 300.
+            dailyBudget = tdee + 300;
         }
 
         return {
@@ -55,20 +74,20 @@ export const OnboardingFlow: React.FC<OnboardingProps> = ({ onComplete, baseProf
         };
     };
 
-    const calculateAge = (dob: string) => {
-        const birthDate = new Date(dob);
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
+    const handleExit = async () => {
+        try {
+            await logout();
+        } catch (e) {
+            console.error("Logout failed", e);
         }
-        return age;
     };
 
     const handleNext = async () => {
         // Validation per step if needed
-        if (step === 1 && (!height || !currentWeight)) return alert("Please fill in fields");
+        if (step === 1) {
+            if (!height || !currentWeight) return alert("Please fill in height and weight");
+            if (!baseProfile.dateOfBirth && !age) return alert("Please enter your age");
+        }
         if (step === 3 && (goal !== 'maintain' && !targetWeight)) return alert("Please set target weight");
 
         if (step < steps) {
@@ -149,6 +168,19 @@ export const OnboardingFlow: React.FC<OnboardingProps> = ({ onComplete, baseProf
                                 placeholder="e.g. 70"
                             />
                         </div>
+
+                        {!baseProfile.dateOfBirth && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
+                                <input
+                                    type="number"
+                                    value={age}
+                                    onChange={e => setAge(e.target.value)}
+                                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none"
+                                    placeholder="e.g. 25"
+                                />
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -244,14 +276,12 @@ export const OnboardingFlow: React.FC<OnboardingProps> = ({ onComplete, baseProf
                         <ChevronRight size={20} />
                     </button>
 
-                    {step > 1 && (
-                        <button
-                            onClick={() => setStep(step - 1)}
-                            className="w-full mt-3 text-gray-500 py-2 text-sm hover:text-gray-700"
-                        >
-                            Go Back
-                        </button>
-                    )}
+                    <button
+                        onClick={step === 1 ? handleExit : () => setStep(step - 1)}
+                        className="w-full mt-3 text-gray-500 py-2 text-sm hover:text-gray-700 hover:bg-gray-50 rounded-lg transition"
+                    >
+                        {step === 1 ? 'Cancel & Return to Login' : 'Go Back'}
+                    </button>
                 </div>
             </div>
         </div>

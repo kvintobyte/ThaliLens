@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { User, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInAnonymously, signOut } from 'firebase/auth';
 import { auth } from '../services/firebaseConfig';
 import { createUserProfile } from '../services/firebaseUtils';
 import { updateProfile } from 'firebase/auth';
@@ -9,6 +9,7 @@ interface AuthContextType {
     loading: boolean;
     signup: (email: string, pass: string, name: string, dob: string) => Promise<void>;
     login: (email: string, pass: string) => Promise<void>;
+    loginAnonymously: () => Promise<void>;
     logout: () => Promise<void>;
 }
 
@@ -59,6 +60,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         signup,
         login,
+        loginAnonymously: async () => {
+            await signInAnonymously(auth);
+        },
         logout
     };
 

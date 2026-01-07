@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchMonthlyLogs, fetchUserProfile, updateUserProfile } from '../services/firebaseUtils';
 import { DailyLog, UserProfileData } from '../types';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine, Cell } from 'recharts';
 import { LogOut, User as UserIcon, Calendar, RefreshCcw, Settings, ToggleLeft, ToggleRight } from 'lucide-react';
 
 interface UserProfileProps {
@@ -78,7 +78,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onRetakeOnboarding }) 
                     </div>
                     <div>
                         <h2 className="text-xl font-bold text-gray-900">
-                            {userProfile?.displayName || user?.displayName || 'My Profile'}
+                            {user?.isAnonymous ? 'Guest User' : (userProfile?.displayName || user?.displayName || 'My Profile')}
                         </h2>
                         <p className="text-sm text-gray-500">
                             {user?.email}
@@ -124,7 +124,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onRetakeOnboarding }) 
                 <div className="h-64 w-full">
                     {chartData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={chartData}>
+                            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                                 <XAxis
                                     dataKey="day"
@@ -135,10 +135,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onRetakeOnboarding }) 
                                 />
                                 <YAxis
                                     hide
-                                    domain={['dataMin', 'auto']}
+                                    domain={[0, 'auto']}
                                 />
                                 <Tooltip
-                                    cursor={{ stroke: '#f3f4f6', strokeWidth: 2 }}
+                                    cursor={{ fill: '#f9fafb' }}
                                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                                 />
                                 {userProfile?.dailyBudget && (
@@ -150,19 +150,25 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onRetakeOnboarding }) 
                                             value: 'Goal',
                                             position: 'right',
                                             fill: '#10b981',
-                                            fontSize: 10
+                                            fontSize: 10,
+                                            dy: -10
                                         }}
                                     />
                                 )}
-                                <Line
-                                    type="monotone"
+                                <Bar
                                     dataKey="calories"
-                                    stroke="#fb923c"
-                                    strokeWidth={3}
-                                    dot={{ fill: '#fb923c', r: 4, strokeWidth: 0 }}
-                                    activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
-                                />
-                            </LineChart>
+                                    fill="#fed7aa"
+                                    radius={[6, 6, 6, 6]}
+                                    barSize={12}
+                                >
+                                    {chartData.map((entry, index) => (
+                                        <Cell
+                                            key={`cell-${index}`}
+                                            fill={entry.calories > (userProfile?.dailyBudget || 2500) ? '#fb923c' : '#fdba74'}
+                                        />
+                                    ))}
+                                </Bar>
+                            </BarChart>
                         </ResponsiveContainer>
                     ) : (
                         <div className="h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
