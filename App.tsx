@@ -1,36 +1,81 @@
-import React, { useState } from 'react';
-import { ChefHat, AlertCircle } from 'lucide-react';
-import { ImageUpload } from './components/ImageUpload';
-import { AnalysisResult } from './components/AnalysisResult';
-import { analyzeIndianFood } from './services/geminiService';
-import { FoodItem, AppState } from './types';
+import React, { useState, useEffect } from 'react';
+import { ChefHat, Home, User, Scan, Camera } from 'lucide-react';
+import { AppState, UserProfileData } from './types';
+import { fetchUserProfile } from './services/firebaseUtils';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthPage } from './components/AuthPage';
+import { UserProfile } from './components/UserProfile';
+import { OnboardingFlow } from './components/OnboardingFlow';
+import { ResultsScreen } from './components/ResultsScreen';
+import { ScanPage } from './components/ScanPage';
+import { DailyInsights } from './components/DailyInsights';
 
-function App() {
-  const [appState, setAppState] = useState<AppState>(AppState.IDLE);
-  const [items, setItems] = useState<FoodItem[]>([]);
-  const [error, setError] = useState<string | null>(null);
+function AppContent() {
+  const { user, loading } = useAuth();
 
-  const handleImageSelected = async (file: File) => {
-    setAppState(AppState.ANALYZING);
-    setError(null);
-    try {
-      const result = await analyzeIndianFood(file);
-      setItems(result);
-      setAppState(AppState.SUCCESS);
-    } catch (err) {
-      setAppState(AppState.ERROR);
-      setError(err instanceof Error ? err.message : "Failed to analyze image. Please try again.");
+  // App Logic State
+  const [currentView, setCurrentView] = useState<'home' | 'scan' | 'profile'>('home');
+  const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
+  const [onboardingStatus, setOnboardingStatus] = useState<'loading' | 'onboarding' | 'results' | 'complete'>('loading');
+
+  const loadProfile = async () => {
+    if (user) {
+      const p = await fetchUserProfile(user.uid);
+      console.log("Fetched profile:", p);
+      setUserProfile(p);
+      if (p && p.dailyBudget) {
+        setOnboardingStatus('complete');
+      } else {
+        setOnboardingStatus('onboarding');
+      }
     }
   };
 
-  const handleReset = () => {
-    setAppState(AppState.IDLE);
-    setItems([]);
-    setError(null);
+  useEffect(() => {
+    loadProfile();
+  }, [user]);
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin text-orange-500">Loading...</div></div>;
+  if (!user) return <AuthPage />;
+
+  // Handle Onboarding Flow
+  if (onboardingStatus === 'onboarding') {
+    // if (!userProfile) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin text-orange-500">Loading Profile...</div></div>;
+    // Actually we can start onboarding even if profile is partial.
+
+    return (
+      <div className="min-h-screen bg-orange-50 p-4 flex items-center justify-center">
+        <OnboardingFlow
+          baseProfile={userProfile || { uid: user.uid, displayName: user.displayName || '', dateOfBirth: '', createdAt: '', email: user.email }}
+          onComplete={(data) => {
+            setUserProfile(prev => prev ? { ...prev, ...data } : null);
+            setOnboardingStatus('results');
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (onboardingStatus === 'results') {
+    if (!userProfile) return null;
+    return (
+      <div className="min-h-screen bg-orange-50 p-4 flex items-center justify-center">
+        <ResultsScreen
+          data={userProfile}
+          onContinue={() => setOnboardingStatus('complete')}
+        />
+      </div>
+    );
+  }
+
+  // Retake Handler
+  const handleRetakeOnboarding = () => {
+    setOnboardingStatus('onboarding');
+    setCurrentView('home'); // Reset view for when they come back
   };
 
   return (
-    <div className="min-h-screen bg-orange-50 pb-20">
+    <div className="min-h-screen bg-orange-50 pb-24">
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -42,54 +87,59 @@ function App() {
               Thali<span className="text-orange-600">Lens</span>
             </h1>
           </div>
-          <div className="text-xs font-medium text-gray-400 uppercase tracking-widest hidden sm:block">
-            AI Nutrition Tracker
-          </div>
+          {/* <div className="text-xs font-medium text-gray-400 uppercase tracking-widest hidden sm:block">
+             Step {onboardingStatus === 'complete' ? 'Track' : 'Start'}
+          </div> */}
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 pt-8">
-        {/* Intro / Hero - Only show when IDLE or ANALYZING without results */}
-        {(appState === AppState.IDLE || appState === AppState.ANALYZING || appState === AppState.ERROR) && (
-          <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-              What's on your plate?
-            </h2>
-            <p className="text-gray-600 max-w-lg mx-auto">
-              Instant nutrition breakdown for Indian cuisine. From butter chicken to pani puri, we've got you covered.
-            </p>
-          </div>
-        )}
 
-        {/* Upload Section */}
-        {(appState === AppState.IDLE || appState === AppState.ANALYZING || appState === AppState.ERROR) && (
-          <div className="animate-fade-in-up">
-            <ImageUpload
-              onImageSelected={handleImageSelected}
-              isLoading={appState === AppState.ANALYZING}
-            />
-          </div>
-        )}
-
-        {/* Error Message */}
-        {appState === AppState.ERROR && error && (
-          <div className="max-w-md mx-auto mt-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-pulse">
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-            <p className="text-red-700 text-sm">{error}</p>
-          </div>
-        )}
-
-        {/* Results Section */}
-        {appState === AppState.SUCCESS && (
-          <AnalysisResult items={items} onReset={handleReset} />
+        {currentView === 'profile' ? (
+          <UserProfile onRetakeOnboarding={handleRetakeOnboarding} />
+        ) : currentView === 'scan' ? (
+          <ScanPage />
+        ) : (
+          <DailyInsights userProfile={userProfile} />
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="text-center py-6 text-gray-400 text-sm mt-8">
-        <p>Powered by Gemini AI. Estimates may vary.</p>
-      </footer>
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200/50 pb-safe pt-2 px-6 shadow-2xl z-50 transition-all duration-300">
+        <div className="max-w-md mx-auto flex justify-between items-center h-16">
+          <button
+            onClick={() => { setCurrentView('home'); loadProfile(); }} // Reload profile on home click to refresh metrics if changed
+            className={`flex flex-col items-center space-y-1 w-1/3 ${currentView === 'home' ? 'text-orange-500' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <Home size={24} strokeWidth={currentView === 'home' ? 2.5 : 2} />
+            <span className="text-[10px] font-medium">Daily</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentView('scan')}
+            className="relative -top-6 bg-orange-500 text-white p-4 rounded-full shadow-lg shadow-orange-200 hover:scale-105 transition transform"
+          >
+            <Camera size={28} />
+          </button>
+
+          <button
+            onClick={() => setCurrentView('profile')}
+            className={`flex flex-col items-center space-y-1 w-1/3 ${currentView === 'profile' ? 'text-orange-500' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <User size={24} strokeWidth={currentView === 'profile' ? 2.5 : 2} />
+            <span className="text-[10px] font-medium">Profile</span>
+          </button>
+        </div>
+      </nav>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
